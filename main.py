@@ -1,20 +1,24 @@
 import os
-from flask import Flask
+from telegram.ext import Application, ChatMemberHandler, CommandHandler, ContextTypes
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, ChatMemberHandler
+from flask import Flask
 
-# Bot Token & Owner ID
-TOKEN = os.getenv("BOT_TOKEN", "8466271055:AAEuITQNe4DXvSX2GFybR0oB-2cPmnc6Hs8")
-OWNER_ID = 7124683213
+# ==============================
+# CONFIG
+# ==============================
+TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+OWNER_ID = 7124683213   # 👈 Replace with your Telegram user ID
+PORT = int(os.environ.get("PORT", 10000))
 
-# Flask app (keep-alive for Render)
 app = Flask(__name__)
 
 @app.route("/")
 def index():
     return "🤖 Bot is running with polling!"
 
-# Telegram Bot
+# ==============================
+# BOT SETUP
+# ==============================
 application = Application.builder().token(TOKEN).build()
 
 # /start command
@@ -24,37 +28,40 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ You are not my owner!")
 
-# When bot is added/removed
+# Detect when bot is added to a group
 async def bot_added(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_member = update.my_chat_member
+    new_status = chat_member.new_chat_member.status
 
-    # Check if the update is about the bot itself
-    if chat_member.new_chat_member.user.id == context.bot.id:
+    # Bot just became a member of a group
+    if new_status == "member":
         inviter = chat_member.from_user
         chat = chat_member.chat
 
         if inviter.id != OWNER_ID:
-            # Notify the owner privately
+            # Notify owner privately
             msg = (
-                f"⚠️ Someone tried to add me!\n\n"
+                f"⚠️ Unauthorized Add Attempt!\n\n"
                 f"👤 User: {inviter.first_name} (ID: {inviter.id})\n"
                 f"👥 Group: {chat.title or chat.first_name} (ID: {chat.id})\n"
-                f"❌ I left automatically."
+                f"❌ Bot has left the group automatically."
             )
             await context.bot.send_message(OWNER_ID, msg)
 
-            # Leave the group immediately
+            # Leave the group
             await context.bot.leave_chat(chat.id)
-
         else:
-            # If owner added → stay and greet
-            await context.bot.send_message(chat.id, "✅ 由我的主人添加！")
+            await context.bot.send_message(chat.id, "✅ Added by my Owner!")
 
-# Handlers
+# ==============================
+# HANDLERS
+# ==============================
 application.add_handler(CommandHandler("start", start))
-application.add_handler(ChatMemberHandler(bot_added, chat_member_types=["member", "administrator"]))
+application.add_handler(ChatMemberHandler(bot_added, chat_member_types=["my_chat_member"]))
 
-# Run polling in background
+# ==============================
+# RUN POLLING
+# ==============================
 async def run_polling():
     await application.initialize()
     await application.start()
@@ -65,4 +72,4 @@ if __name__ == "__main__":
     import asyncio
     loop = asyncio.get_event_loop()
     loop.create_task(run_polling())
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=PORT)
