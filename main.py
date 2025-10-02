@@ -1,60 +1,66 @@
 import os
-from telegram import Update, ChatMemberUpdated
+from telegram import Update
 from telegram.ext import Application, CommandHandler, ChatMemberHandler, ContextTypes
-from flask import Flask
 
-# ======================
+# ============================
 # CONFIG
-# ======================
-TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")   # Replace with env or paste directly
-OWNER_ID = 7124683213                                  # Replace with your Telegram ID
-PORT = int(os.environ.get("PORT", 10000))
+# ============================
+TOKEN = os.getenv("BOT_TOKEN", "8466271055:AAFOsoHuJnWCcL0UzcLtlmsNro-jnD9DbhA")  # put your bot token here or set env var
+OWNER_ID = 712468321  # replace with your Telegram user ID
 
-app = Flask(__name__)
-
-@app.route("/")
-def index():
-    return "🤖 Bot is running with polling!"
-
-# ======================
-# BOT SETUP
-# ======================
-application = Application.builder().token(TOKEN).build()
-
+# ============================
 # /start command
+# ============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == OWNER_ID:
-        await update.message.reply_text("✅ Hello Owner! Bot is active 24/7 on Render 🚀")
+        await update.message.reply_text("✅ Hello Owner! Bot is active 24/7 🚀")
     else:
         await update.message.reply_text("❌ You are not my owner!")
 
-# Detect when bot is added to a group
+# ============================
+# Detect bot added to a group
+# ============================
 async def bot_added(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_member: ChatMemberUpdated = update.chat_member
-    if chat_member.new_chat_member.user.id == context.bot.id:  # Bot itself added
-        adder_id = chat_member.from_user.id
-        chat_id = chat_member.chat.id
+    adder = update.chat_member.from_user
+    chat = update.chat_member.chat
 
-        if adder_id != OWNER_ID:
-            # Notify the owner in private
+    # Check if the event is about the bot
+    if update.chat_member.new_chat_member.user.id == context.bot.id:
+        if adder.id != OWNER_ID:
+            # Notify owner
+            try:
+                await context.bot.send_message(
+                    OWNER_ID,
+                    f"⚠️ Someone ({adder.full_name}) added me to <b>{chat.title}</b>. Leaving...",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
+            # Leave group
+            await context.bot.leave_chat(chat.id)
+        else:
+            # If owner added -> stay and notify
             await context.bot.send_message(
                 OWNER_ID,
-                f"⚠️ Someone (ID: {adder_id}) tried to add me to group: {chat_member.chat.title}. I left immediately."
+                f"✅ You added me to <b>{chat.title}</b>. Staying here!",
+                parse_mode="HTML"
             )
-            # Leave the group
-            await context.bot.leave_chat(chat_id)
 
-# Handlers
-application.add_handler(CommandHandler("start", start))
-application.add_handler(ChatMemberHandler(bot_added, ChatMemberHandler.MY_CHAT_MEMBER))
+# ============================
+# MAIN SETUP
+# ============================
+def main():
+    application = Application.builder().token(TOKEN).build()
 
-# ======================
-# RUN BOT + FLASK
-# ======================
-import threading
+    # Commands
+    application.add_handler(CommandHandler("start", start))
 
-def run_flask():
-    app.run(host="0.0.0.0", port=PORT)
+    # Chat member updates (when bot is added/removed)
+    application.add_handler(ChatMemberHandler(bot_added, ChatMemberHandler.MY_CHAT_MEMBER))
 
-threading.Thread(target=run_flask).start()
-application.run_polling()
+    print("🤖 Bot is running with polling...")
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
