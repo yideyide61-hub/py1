@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, ChatMemberHandler, Context
 # ============================
 # CONFIG
 # ============================
-TOKEN = os.getenv("BOT_TOKEN", "8466271055:AAFOsoHuJnWCcL0UzcLtlmsNro-jnD9DbhA")  # put your bot token here or set env var
+TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 OWNER_ID = 712468321  # replace with your Telegram user ID
 
 # ============================
@@ -64,4 +64,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
